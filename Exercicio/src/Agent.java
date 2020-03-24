@@ -87,22 +87,8 @@ public class Agent {
 	public void decideAndAct() {
 		if (restart > 0) {
 			stepCounter += 1;
-			HashMap<String, Double> decisionMap = new HashMap<String, Double>(utilitiesAverage);
-			if (bestTask != null) {
-				for (String task : decisionMap.keySet()) {
-					if (!task.equals(currentTask)) {
-						decisionMap.put(task, utilitiesAverage.get(task) - (double) restart);
-					}
-				}
-			}
-			System.out.println(decisionMap.toString());
-			System.out.println(stepCounter + " : " + restartCounter);
-			String task;
-			if (bestTask != null) {
-				task = bestRestartTask(decisionMap);
-			} else {
-				task = bestUtilityTask(decisionMap);
-			}
+			HashMap<String, Double> decisionMap = createRestartDecisionMap();
+			String task = bestUtilityTask(decisionMap);
 			if (stepCounter == steps) return;
 			if (restartCounter == restart) {
 				if (task.equals(currentTask)) bestTask = task;
@@ -118,13 +104,24 @@ public class Agent {
 			}
 			restartCounter += 1;
 			currentTask = task;
-			System.out.println("current task " + currentTask);
-			System.out.println("best task " + bestTask);
-			System.out.println();
 		} else {
 			stepCounter += 1;
 			bestTask = bestUtilityTask(utilitiesAverage);
 		}
+	}
+	
+	private HashMap<String, Double> createRestartDecisionMap() {
+		HashMap<String, Double> decisionMap = new HashMap<String, Double>(utilitiesAverage);
+		if (bestTask != null) {
+			for (String task : decisionMap.keySet()) {
+				if (!task.equals(currentTask)) {
+					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1 - restart));
+				} else {
+					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1));
+				}
+			}
+		}
+		return decisionMap;
 	}
 
 	private String bestUtilityTask(HashMap<String, Double> map) {
@@ -134,27 +131,6 @@ public class Agent {
 				currentBestTask = task;
 			} else {
 				if (map.get(task).compareTo(map.get(currentBestTask)) == 0) {
-					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
-					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
-					if (index1 < index2)
-						currentBestTask = task;
-				}
-			}
-		}
-		return currentBestTask;
-	}
-
-	private String bestRestartTask(HashMap<String, Double> map) {
-		String currentBestTask = null;
-		for (String task : map.keySet()) {
-			if (stepCounter == 5) {
-				System.out.println("comp task: " + task + " u: " + map.get(task));
-				System.out.println("comp current: " + currentBestTask + " u: " + map.get(currentBestTask));
-			}
-			if (currentBestTask == null || map.get(task) > map.get(currentBestTask)) {
-				currentBestTask = task;
-			} else {
-				if (map.get(task).compareTo(map.get(currentBestTask)) == 0 && !bestTask.equals(task) && !bestTask.equals(currentBestTask)) {
 					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
 					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
 					if (index1 < index2)
