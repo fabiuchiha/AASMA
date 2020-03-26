@@ -60,27 +60,15 @@ public class MultiAgent extends Agent {
 							if (agent.isLastAgent()) {
 								Double newAgentsAverage = agentsSum / agents.size();
 								Double newAverage = 0.0;
+								updateMaps(newAgentsAverage);
 								if (homogeneousIndexes.containsKey(maBestTask)) {
-									ArrayList<Double> values = homogeneousObservedUtilities.get(maBestTask);
-									values.add(newAgentsAverage);
-									homogeneousObservedUtilities.put(maBestTask, values);
-									ArrayList<Integer> indexes = homogeneousIndexes.get(maBestTask);
-									indexes.add(maStepCounter);
-									homogeneousIndexes.put(maBestTask, indexes);
 									double oldAverage = homogeneousAverages.get(maBestTask);
 									int counter = homogeneousIndexes.get(maBestTask).size();
 									newAverage = oldAverage + ((newAgentsAverage - oldAverage) / (counter));
-									homogeneousAverages.put(maBestTask, newAverage);
-								} else {
-									ArrayList<Double> values = new ArrayList<Double>();
-									values.add(newAgentsAverage);
-									homogeneousObservedUtilities.put(maBestTask, values);
-									ArrayList<Integer> indexes = new ArrayList<Integer>();
-									indexes.add(maStepCounter);
-									homogeneousIndexes.put(maBestTask, indexes);
-									homogeneousAverages.put(maBestTask, newAgentsAverage);
+								} else {									
 									newAverage = newAgentsAverage;
 								}
+								homogeneousAverages.put(maBestTask, newAverage);
 								agentsSum = 0.0;
 								for (SimpleAgent agent2: agents) {
 									agent2.addUtility(maBestTask, newAverage);
@@ -94,6 +82,22 @@ public class MultiAgent extends Agent {
 		} else {
 			
 		}
+	}
+	
+	private void updateMaps(Double newAgentsAverage) {
+		ArrayList<Double> values;
+		ArrayList<Integer> indexes;
+		if (homogeneousIndexes.containsKey(maBestTask)) {
+			values = homogeneousObservedUtilities.get(maBestTask);
+			indexes = homogeneousIndexes.get(maBestTask);
+		} else {
+			values = new ArrayList<Double>();
+			indexes = new ArrayList<Integer>();
+		}
+		values.add(newAgentsAverage);
+		homogeneousObservedUtilities.put(maBestTask, values);
+		indexes.add(maStepCounter);
+		homogeneousIndexes.put(maBestTask, indexes);
 	}
 	
 	public void decideAndAct() {

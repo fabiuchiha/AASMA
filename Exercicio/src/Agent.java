@@ -11,7 +11,6 @@ import java.util.Locale;
 
 public class Agent {
 
-	private String name;
 	private int steps;
 	private String decision;
 	private int restart;
@@ -32,7 +31,6 @@ public class Agent {
 		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
 		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
 		if (options.contains("memory-factor")) memoryFactor = Double.parseDouble(options.split("memory-factor=")[1].split(" ")[0].trim());
-		name = "A";
 	}
 
 	public void perceive(String input) {
@@ -41,29 +39,30 @@ public class Agent {
 			double utility = Integer.parseInt(input.split("=")[1].toString().trim());
 			utilitiesAverage.put(task, utility);
 		} else {
-			if (input.startsWith(name)) {
+			if (input.startsWith("A")) {
 				double newValue = Integer.parseInt(input.split("=")[1].toString().trim());
 				gain += newValue;
-				if (!utilitiesIndexes.containsKey(bestTask)) {
-					ArrayList<Double> values = new ArrayList<Double>();
-					values.add(newValue);
-					observedUtilities.put(bestTask, values);
-					ArrayList<Integer> indexes = new ArrayList<Integer>();
-					indexes.add(stepCounter);
-					utilitiesIndexes.put(bestTask, indexes);
-					utilitiesAverage.put(bestTask, newValue);
-				} else {
-					ArrayList<Double> values = observedUtilities.get(bestTask);
-					values.add(newValue);
-					observedUtilities.put(bestTask, values);
-					ArrayList<Integer> indexes = utilitiesIndexes.get(bestTask);
-					indexes.add(stepCounter);
-					utilitiesIndexes.put(bestTask, indexes);
-					Double newAverage = memoryFactorAverage();
-					utilitiesAverage.put(bestTask, newAverage);
-				}
+				updateMaps(newValue);
+				if (!utilitiesIndexes.containsKey(bestTask)) utilitiesAverage.put(bestTask, newValue);
+				else utilitiesAverage.put(bestTask, memoryFactorAverage());
 			}
 		}
+	}
+	
+	private void updateMaps(Double newValue) {
+		ArrayList<Double> values;
+		ArrayList<Integer> indexes;
+		if (utilitiesIndexes.containsKey(bestTask)) {
+			values = observedUtilities.get(bestTask);
+			indexes = utilitiesIndexes.get(bestTask);
+		} else {
+			values = new ArrayList<Double>();
+			indexes = new ArrayList<Integer>();
+		}
+		values.add(newValue);
+		observedUtilities.put(bestTask, values);
+		indexes.add(stepCounter);
+		utilitiesIndexes.put(bestTask, indexes);
 	}
 	
 	private Double memoryFactorAverage() {
@@ -162,21 +161,6 @@ public class Agent {
 		System.out.print("} gain=" + f.format(gain));
 	}
 	
-	public String getName() {
-		return name;
-	}
-
-	public void setName(String name) {
-		this.name = name;
-	}
-	
-	public HashMap<String, Double> getUtilitiesAverage() {
-		return utilitiesAverage;
-	}
-
-	public HashMap<String, ArrayList<Integer>> getUtilitiesIndexes() {
-		return utilitiesIndexes;
-	}
 
 	public static void main(String[] args) throws IOException {
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
