@@ -11,30 +11,28 @@ import java.util.Locale;
 
 public class Agent {
 
-	int steps;
-	String decision;
-	int restart;
-	double memoryFactor;
+	private String name;
+	private int steps;
+	private String decision;
+	private int restart;
+	private double memoryFactor;
 
-	int stepCounter;
-	int restartCounter;
-	String bestTask;
-	String currentTask;
-	double gain;
+	private int stepCounter;
+	private int restartCounter;
+	private String bestTask;
+	private String currentTask;
+	private double gain;
 	
-	HashMap<String, ArrayList<Double>> observedUtilities = new HashMap<String, ArrayList<Double>>();
-	HashMap<String, ArrayList<Integer>> utilitiesIndexes = new HashMap<String, ArrayList<Integer>>();
-	HashMap<String, Double> utilitiesAverage = new HashMap<String, Double>();
+	private HashMap<String, ArrayList<Double>> observedUtilities = new HashMap<String, ArrayList<Double>>();
+	private HashMap<String, ArrayList<Integer>> utilitiesIndexes = new HashMap<String, ArrayList<Integer>>();
+	private HashMap<String, Double> utilitiesAverage = new HashMap<String, Double>();
 
 	public Agent(String options) {
-		if (options.contains("cycle"))
-			steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
-		if (options.contains("decision"))
-			decision = options.split("decision=")[1].split(" ")[0].trim();
-		if (options.contains("restart"))
-			restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
-		if (options.contains("memory-factor"))
-			memoryFactor = Double.parseDouble(options.split("memory-factor=")[1].split(" ")[0].trim());
+		if (options.contains("cycle")) steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
+		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
+		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
+		if (options.contains("memory-factor")) memoryFactor = Double.parseDouble(options.split("memory-factor=")[1].split(" ")[0].trim());
+		name = "A";
 	}
 
 	public void perceive(String input) {
@@ -43,7 +41,7 @@ public class Agent {
 			double utility = Integer.parseInt(input.split("=")[1].toString().trim());
 			utilitiesAverage.put(task, utility);
 		} else {
-			if (input.startsWith("A")) {
+			if (input.startsWith(name)) {
 				double newValue = Integer.parseInt(input.split("=")[1].toString().trim());
 				gain += newValue;
 				if (!utilitiesIndexes.containsKey(bestTask)) {
@@ -85,8 +83,8 @@ public class Agent {
 	}
 
 	public void decideAndAct() {
+		stepCounter++;
 		if (restart > 0) {
-			stepCounter += 1;
 			HashMap<String, Double> decisionMap = createRestartDecisionMap();
 			String task = bestUtilityTask(decisionMap);
 			if (stepCounter == steps) return;
@@ -105,7 +103,6 @@ public class Agent {
 			restartCounter += 1;
 			currentTask = task;
 		} else {
-			stepCounter += 1;
 			bestTask = bestUtilityTask(utilitiesAverage);
 		}
 	}
@@ -124,7 +121,7 @@ public class Agent {
 		return decisionMap;
 	}
 
-	private String bestUtilityTask(HashMap<String, Double> map) {
+	public String bestUtilityTask(HashMap<String, Double> map) {
 		String currentBestTask = null;
 		for (String task : map.keySet()) {
 			if (currentBestTask == null || map.get(task) > map.get(currentBestTask)) {
@@ -164,18 +161,45 @@ public class Agent {
 		}
 		System.out.print("} gain=" + f.format(gain));
 	}
+	
+	public String getName() {
+		return name;
+	}
+
+	public void setName(String name) {
+		this.name = name;
+	}
+	
+	public HashMap<String, Double> getUtilitiesAverage() {
+		return utilitiesAverage;
+	}
+
+	public HashMap<String, ArrayList<Integer>> getUtilitiesIndexes() {
+		return utilitiesIndexes;
+	}
 
 	public static void main(String[] args) throws IOException {
 		BufferedReader br = new BufferedReader(new InputStreamReader(System.in));
 		String line = br.readLine();
-		Agent agent = new Agent(line);
+		
+		Agent agent;
+		if (line.contains("decision=")) {
+			String decision = line.split("decision=")[1].split(" ")[0].trim();
+			if (decision.equals("homogeneous-society") || decision.equals("heterogeneous-society")) {
+				agent = new MultiAgent(line);
+			} else {
+				agent = new Agent(line);
+			}
+		} else {
+			agent = new Agent(line);
+		}
+		
 		while (!(line = br.readLine()).startsWith("end")) {
-			if (line.startsWith("TIK"))
-				agent.decideAndAct();
-			else
-				agent.perceive(line);
+			if (line.startsWith("TIK")) agent.decideAndAct();
+			else agent.perceive(line);
 		}
 		agent.recharge();
 		br.close();
 	}
+
 }
