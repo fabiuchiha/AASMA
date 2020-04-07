@@ -24,8 +24,12 @@ public class MultiAgent extends Agent {
 	private HashMap<String, ArrayList<Double>> homogeneousObservedUtilities = new HashMap<String, ArrayList<Double>>();
 	private HashMap<String, ArrayList<Integer>> homogeneousIndexes = new HashMap<String, ArrayList<Integer>>();
 	
+	private Locale locale = new Locale("en", "UK");
+	private DecimalFormat frmt = ((DecimalFormat) NumberFormat.getNumberInstance(locale));
+	
 	public MultiAgent(String options) {
 		super(options);
+		frmt.applyPattern("#0.00");
 		if (options.contains("cycle")) steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
 		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
 		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
@@ -114,10 +118,6 @@ public class MultiAgent extends Agent {
 		List<String> taskList = new ArrayList<>(homogeneousAverages.keySet());
 		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
 
-		Locale locale = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(locale);
-		f.applyPattern("#0.00");
-
 		System.out.print("state={");
 		int agentsCounter = 0;
 		for (SimpleAgent agent: agents) {
@@ -128,7 +128,7 @@ public class MultiAgent extends Agent {
 				taskCounter++;
 				System.out.print(task + "=");
 				if (agent.getUtilities().containsKey(task)) {
-					System.out.print(f.format(agent.getUtilities().get(task)));
+					System.out.print(frmt.format(agent.getUtilities().get(task)));
 				} else {
 					System.out.print("NA");
 				}
@@ -136,7 +136,8 @@ public class MultiAgent extends Agent {
 			}
 			if (agentsCounter != agents.size()) System.out.print("},");
 		}
-		System.out.print("}} gain=" + f.format(maGain));
+		System.out.print("}} gain=" + frmt.format(maGain));
+		System.out.println();
 	}
 
 }

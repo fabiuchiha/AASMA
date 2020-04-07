@@ -16,6 +16,7 @@ public class Agent {
 	private int restart;
 	private double memoryFactor;
 
+	private boolean flexibleDecision;
 	private int stepCounter;
 	private int restartCounter;
 	private String bestTask;
@@ -25,8 +26,14 @@ public class Agent {
 	private HashMap<String, ArrayList<Double>> observedUtilities = new HashMap<String, ArrayList<Double>>();
 	private HashMap<String, ArrayList<Integer>> utilitiesIndexes = new HashMap<String, ArrayList<Integer>>();
 	private HashMap<String, Double> utilitiesAverage = new HashMap<String, Double>();
+	
+	private ArrayList<String> negativeTasks = new ArrayList<String>();
+	
+	private Locale locale = new Locale("en", "UK");
+	private DecimalFormat frmt = (DecimalFormat) NumberFormat.getNumberInstance(locale);
 
 	public Agent(String options) {
+		frmt.applyPattern("#0.00");
 		if (options.contains("cycle")) steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
 		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
 		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
@@ -41,6 +48,10 @@ public class Agent {
 		} else {
 			if (input.startsWith("A")) {
 				double newValue = Integer.parseInt(input.split("=")[1].toString().trim());
+				if (newValue < 0 && decision.equals("flexible")) {
+					flexibleDecision = true;
+					negativeTasks.add(bestTask);
+				}
 				gain += newValue;
 				updateMaps(newValue);
 				if (!utilitiesIndexes.containsKey(bestTask)) utilitiesAverage.put(bestTask, newValue);
@@ -102,8 +113,34 @@ public class Agent {
 			restartCounter += 1;
 			currentTask = task;
 		} else {
+			if (flexibleDecision) {
+				String negativeTask = bestTask;
+				String bestPositiveTask = bestFlexibleTask(utilitiesAverage, negativeTask);
+				System.out.println("Negative task: " + negativeTask);
+				System.out.println("Best positive: " + bestPositiveTask);
+				
+				
+				
+			}
 			bestTask = bestUtilityTask(utilitiesAverage);
 		}
+	}
+	
+	public String bestFlexibleTask(HashMap<String, Double> map, String negativeTask) {
+		String currentBestTask = null;
+		for (String task : map.keySet()) {
+			if (currentBestTask == null || ((map.get(task) > map.get(currentBestTask)) && (map.get(task) >= 0) && (!task.equals(negativeTask)))) {
+				currentBestTask = task;
+			} else {
+				if (map.get(task).compareTo(map.get(currentBestTask)) == 0) {
+					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
+					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
+					if (index1 < index2)
+						currentBestTask = task;
+				}
+			}
+		}
+		return currentBestTask;
 	}
 	
 	private HashMap<String, Double> createRestartDecisionMap() {
@@ -141,24 +178,21 @@ public class Agent {
 		List<String> taskList = new ArrayList<>(utilitiesAverage.keySet());
 		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
 
-		Locale locale = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(locale);
-		f.applyPattern("#0.00");
-
 		System.out.print("state={");
 		int count = 0;
 		for (String task : taskList) {
 			count += 1;
 			System.out.print(task + "=");
 			if (utilitiesIndexes.get(task) != null) {
-				System.out.print(f.format(utilitiesAverage.get(task)));
+				System.out.print(frmt.format(utilitiesAverage.get(task)));
 			} else {
 				System.out.print("NA");
 			}
 			if (count != utilitiesAverage.keySet().size())
 				System.out.print(",");
 		}
-		System.out.print("} gain=" + f.format(gain));
+		System.out.print("} gain=" + frmt.format(gain));
+		System.out.println();
 	}
 	
 
