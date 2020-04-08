@@ -40,9 +40,9 @@ public class MultiAgent extends Agent {
 		for (String agentName: agentsNames) {
 			SimpleAgent newAgent;
 			if (agentName.equals(agentsNames[agentsNames.length - 1])) {
-				newAgent = new SimpleAgent(true);
+				newAgent = new SimpleAgent(true, steps, decision, restart, memoryFactor);
 			} else {
-				newAgent = new SimpleAgent(false);
+				newAgent = new SimpleAgent(false, steps, decision, restart, memoryFactor);
 			}
 			newAgent.setName(agentName.trim());
 			agents.add(newAgent);
@@ -68,7 +68,7 @@ public class MultiAgent extends Agent {
 								homogeneousAverages.put(maBestTask, memoryFactorAverage(maBestTask));
 								agentsSum = 0.0;
 								for (SimpleAgent agent2: agents) {
-									agent2.addUtility(maBestTask, memoryFactorAverage(maBestTask));
+									agent2.addUtilityAverage(maBestTask, memoryFactorAverage(maBestTask));
 								}
 							}
 						}
@@ -76,7 +76,24 @@ public class MultiAgent extends Agent {
 				}
 			}
 		} else {
-			
+			if (input.startsWith("T")) {
+				String task = input.split(" ")[0].toString();
+				double utility = Integer.parseInt(input.split("=")[1].toString().trim());
+				for (SimpleAgent agent: agents) {
+					agent.addUtilityAverage(task, utility);
+				}
+			} else {
+				if (input.startsWith("A")) {
+					for (SimpleAgent agent: agents) {
+						if (agent.getName().equals(input.split(" ")[0].toString())) {
+							double newValue = Integer.parseInt(input.split("=")[1].toString().trim());
+							maGain += newValue;
+							agent.updateMaps(newValue, agent.getBestTask());
+							agent.addUtilityAverage(agent.getBestTask(), agent.memoryFactorAverage(agent.getBestTask()));
+						}
+					}
+				}
+			}
 		}
 	}
 	
@@ -113,8 +130,8 @@ public class MultiAgent extends Agent {
 	}
 	
 	public void decideAndAct() {
-		maStepCounter++;
 		if (decision.equals("homogeneous-society")) {
+			maStepCounter++;
 			if (restart > 0) {
 				HashMap<String, Double> decisionMap = createRestartDecisionMap();
 				String task = bestUtilityTask(decisionMap);
@@ -137,6 +154,11 @@ public class MultiAgent extends Agent {
 				maBestTask = bestUtilityTask(homogeneousAverages);
 			}
 		} else {
+			for (SimpleAgent agent: agents) {
+				agent.setStepCounter(agent.getStepCounter() + 1);
+				String agentBestTask = bestUtilityTask(agent.getUtilitiesAverage());
+				agent.setBestTask(agentBestTask);
+			}
 			
 		}
 	}
@@ -156,29 +178,53 @@ public class MultiAgent extends Agent {
 	}
 	
 	public void recharge() {
-		List<String> taskList = new ArrayList<>(homogeneousAverages.keySet());
-		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
-
-		System.out.print("state={");
-		int agentsCounter = 0;
-		for (SimpleAgent agent: agents) {
-			agentsCounter++;
-			System.out.print(agent.getName() + "={");
-			int taskCounter = 0;
-			for (String task : taskList) {
-				taskCounter++;
-				System.out.print(task + "=");
-				if (agent.getUtilities().containsKey(task)) {
-					System.out.print(frmt.format(agent.getUtilities().get(task)));
-				} else {
-					System.out.print("NA");
+		if (decision.equals("homogeneous-society")) {
+			List<String> taskList = new ArrayList<>(homogeneousAverages.keySet());
+			Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
+	
+			System.out.print("state={");
+			int agentsCounter = 0;
+			for (SimpleAgent agent: agents) {
+				agentsCounter++;
+				System.out.print(agent.getName() + "={");
+				int taskCounter = 0;
+				for (String task : taskList) {
+					taskCounter++;
+					System.out.print(task + "=");
+					if (agent.getUtilitiesAverage().containsKey(task)) {
+						System.out.print(frmt.format(agent.getUtilitiesAverage().get(task)));
+					} else {
+						System.out.print("NA");
+					}
+					if (taskCounter != taskList.size()) System.out.print(",");
 				}
-				if (taskCounter != taskList.size()) System.out.print(",");
+				if (agentsCounter != agents.size()) System.out.print("},");
 			}
-			if (agentsCounter != agents.size()) System.out.print("},");
+			System.out.print("}} gain=" + frmt.format(maGain));
+			System.out.println();
+		} else {
+			System.out.print("state={");
+			int agentsCounter = 0;
+			for (SimpleAgent agent: agents) {
+				agentsCounter++;
+				List<String> taskList = agent.getOrderedTaskList();
+				System.out.print(agent.getName() + "={");
+				int taskCounter = 0;
+				for (String task : taskList) {
+					taskCounter++;
+					System.out.print(task + "=");
+					if (agent.getUtilitiesIndexes().containsKey(task)) {
+						System.out.print(frmt.format(agent.getUtilitiesAverage().get(task)));
+					} else {
+						System.out.print("NA");
+					}
+					if (taskCounter != taskList.size()) System.out.print(",");
+				}
+				if (agentsCounter != agents.size()) System.out.print("},");
+			}
+			System.out.print("}} gain=" + frmt.format(maGain));
+			System.out.println();
 		}
-		System.out.print("}} gain=" + frmt.format(maGain));
-		System.out.println();
 	}
 
 }
