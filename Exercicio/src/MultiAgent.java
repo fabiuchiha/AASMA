@@ -14,6 +14,7 @@ public class MultiAgent extends Agent {
 	private double memoryFactor;
 	
 	private String maBestTask;
+	private String maCurrentTask;
 	private int maStepCounter;
 	private int maRestartCounter;
 	private double agentsSum;
@@ -63,21 +64,12 @@ public class MultiAgent extends Agent {
 							agentsSum += newValue;
 							if (agent.isLastAgent()) {
 								Double newAgentsAverage = agentsSum / agents.size();
-								Double newAverage = 0.0;
-								updateMaps(newAgentsAverage);
-								if (homogeneousIndexes.containsKey(maBestTask)) {
-									double oldAverage = homogeneousAverages.get(maBestTask);
-									int counter = homogeneousIndexes.get(maBestTask).size();
-									newAverage = oldAverage + ((newAgentsAverage - oldAverage) / (counter));
-								} else {									
-									newAverage = newAgentsAverage;
-								}
-								homogeneousAverages.put(maBestTask, newAverage);
+								updateMaps(newAgentsAverage);			
+								homogeneousAverages.put(maBestTask, memoryFactorAverage(maBestTask));
 								agentsSum = 0.0;
 								for (SimpleAgent agent2: agents) {
-									agent2.addUtility(maBestTask, newAverage);
+									agent2.addUtility(maBestTask, memoryFactorAverage(maBestTask));
 								}
-								//System.out.println("Task: " + maBestTask + ", Utilidade: " + newAgentsAverage);
 							}
 						}
 					}
@@ -104,14 +96,63 @@ public class MultiAgent extends Agent {
 		homogeneousIndexes.put(maBestTask, indexes);
 	}
 	
+	private Double memoryFactorAverage(String task) {
+		Double sum = 0.0;
+		for (Integer index: homogeneousIndexes.get(task)) {
+			sum += Math.pow(index, memoryFactor);
+		}
+		Double average = 0.0;
+		int i=0;
+		for (Double value: homogeneousObservedUtilities.get(task)) {
+			int valueIndex = homogeneousIndexes.get(task).get(i);
+			Double valueProb = Math.pow(valueIndex, memoryFactor) / sum;
+			average += (valueProb*value);
+			i++;
+		}
+		return average;
+	}
+	
 	public void decideAndAct() {
 		maStepCounter++;
 		if (decision.equals("homogeneous-society")) {
-			maBestTask = bestUtilityTask(homogeneousAverages);
-			//System.out.println(homogeneousAverages.toString());
+			if (restart > 0) {
+				HashMap<String, Double> decisionMap = createRestartDecisionMap();
+				String task = bestUtilityTask(decisionMap);
+				if (maStepCounter == steps) return;
+				if (maRestartCounter == restart) {
+					if (task.equals(maCurrentTask)) maBestTask = task;
+					maRestartCounter = 0;
+				} else {
+					if (!task.equals(maCurrentTask)) {
+						maRestartCounter = 0;
+					} else {
+						if (maBestTask != null && maBestTask.equals(maCurrentTask) && maRestartCounter == 1) {
+							maRestartCounter = 0;
+						}
+					}
+				}
+				maRestartCounter += 1;
+				maCurrentTask = task;
+			} else {
+				maBestTask = bestUtilityTask(homogeneousAverages);
+			}
 		} else {
 			
 		}
+	}
+	
+	private HashMap<String, Double> createRestartDecisionMap() {
+		HashMap<String, Double> decisionMap = new HashMap<String, Double>(homogeneousAverages);
+		if (maBestTask != null) {
+			for (String task : decisionMap.keySet()) {
+				if (!task.equals(maCurrentTask)) {
+					decisionMap.put(task, homogeneousAverages.get(task) * (double)(steps - maStepCounter + 1 - restart));
+				} else {
+					decisionMap.put(task, homogeneousAverages.get(task) * (double)(steps - maStepCounter + 1));
+				}
+			}
+		}
+		return decisionMap;
 	}
 	
 	public void recharge() {

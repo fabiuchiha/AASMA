@@ -112,8 +112,10 @@ public class Agent {
 	}
 
 	public void decideAndAct() {
+		Locale l = new Locale("en", "UK");
+		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
+		f.applyPattern("#0.0000");
 		stepCounter++;
-		System.out.println("Step: " + stepCounter);
 		if (restart > 0) {
 			HashMap<String, Double> decisionMap = createRestartDecisionMap();
 			String task = bestUtilityTask(decisionMap);
@@ -135,64 +137,77 @@ public class Agent {
 		} else {
 			if (decision.equals("flexible")) {
 				if (negativeTaskFlag) {
-					System.out.println(utilitiesAverage);
 					String best = bestUtilityTask(utilitiesAverage);
-					System.out.println("Former best task: " + bestTask);
-					System.out.println("Current best: " + best);
 					if (negativeTasks.contains(best)) {
 						String secondBestTask = null;
 						Double bestExpectedUtility = null;
-						Double bestMin = Collections.min(observedUtilities.get(best));
-						System.out.println("Best min: " + bestMin);
-						for (String task: utilitiesAverage.keySet()) {
-							if (!task.equals(best)) {
-								Double taskMin;
-								if (observedUtilities.containsKey(task)) {
-									taskMin = Collections.min(observedUtilities.get(task));
-								} else {
-									taskMin = utilitiesAverage.get(task);
-								}
-								if (taskMin > 0) {
-									Double probBest = Math.abs(bestMin) / (Math.abs(bestMin) + Math.abs(taskMin));
-									Double probTask = Math.abs(taskMin) / (Math.abs(bestMin) + Math.abs(taskMin));
-									Double bigProb = Math.max(probBest, probTask);
-									Double smallProb = Math.min(probBest, probTask);
-									Double expectedUtility;
-									if (Math.min(Math.abs(bestMin), Math.abs(taskMin)) < Math.abs(taskMin)) {
-										expectedUtility = (utilitiesAverage.get(best) * bigProb) + (utilitiesAverage.get(task) * smallProb);
-										if (bestExpectedUtility == null || expectedUtility > bestExpectedUtility) {
-											System.out.println("Second task: " + task);
-											System.out.println("Task min: " + taskMin);
-											System.out.println("Big prob: " + bigProb);
-											System.out.println("Small prob: " + smallProb);
-											System.out.println("Expected utility: " + expectedUtility);
-											flexibleProbabilities.clear();
-											flexibleProbabilities.put(best, bigProb);
-											flexibleProbabilities.put(task, smallProb);
-											bestExpectedUtility = expectedUtility;
-											secondBestTask = task;
+						for (String negTask: utilitiesAverage.keySet()) {
+							if (negativeTasks.contains(negTask)) {
+								Double bestMin = Collections.min(observedUtilities.get(negTask));
+								for (String task: utilitiesAverage.keySet()) {
+									if (!negativeTasks.contains(task)) {
+										Double taskMin;
+										if (observedUtilities.containsKey(task)) {
+											taskMin = Collections.min(observedUtilities.get(task));
+										} else {
+											taskMin = utilitiesAverage.get(task);
 										}
-									} else {
-										expectedUtility = (utilitiesAverage.get(task) * bigProb) + (utilitiesAverage.get(best) * smallProb);
-										if (bestExpectedUtility == null || expectedUtility > bestExpectedUtility) {
-											System.out.println("Second task: " + task);
-											System.out.println("Task min: " + taskMin);
-											System.out.println("Big prob: " + bigProb);
-											System.out.println("Small prob: " + smallProb);
-											System.out.println("Expected utility: " + expectedUtility);
-											flexibleProbabilities.clear();
-											flexibleProbabilities.put(best, smallProb);
-											flexibleProbabilities.put(task, bigProb);
-											bestExpectedUtility = expectedUtility;
-											secondBestTask = task;
-										}
-									}
-
-								} else {
-									if (taskMin == 0) {
-										if (bestExpectedUtility == null) {
-											bestExpectedUtility = 0.0;
-											secondBestTask = task;
+										if (taskMin > 0) {
+											Double probBest = Math.abs(bestMin) / (Math.abs(bestMin) + Math.abs(taskMin));
+											Double probTask = Math.abs(taskMin) / (Math.abs(bestMin) + Math.abs(taskMin));
+											Double bigProb = Math.max(probBest, probTask);
+											Double smallProb = Math.min(probBest, probTask);
+											Double expectedUtility;
+											if (Double.parseDouble(f.format(Math.min(Math.abs(bestMin), Math.abs(taskMin)))) == Double.parseDouble(f.format(Math.abs(bestMin)))) {
+												expectedUtility = (utilitiesAverage.get(negTask) * bigProb) + (utilitiesAverage.get(task) * smallProb);
+												if (bestExpectedUtility == null || Double.parseDouble(f.format(expectedUtility)) > Double.parseDouble(f.format(bestExpectedUtility))) {
+													flexibleProbabilities.clear();
+													flexibleProbabilities.put(negTask, bigProb);
+													flexibleProbabilities.put(task, smallProb);
+													bestExpectedUtility = expectedUtility;
+													secondBestTask = task;
+												} else {
+													if (Double.parseDouble(f.format(expectedUtility)) == Double.parseDouble(f.format(bestExpectedUtility))) {
+														int index1 = Integer.parseInt(secondBestTask.split("T")[1].toString().trim());
+														int index2 = Integer.parseInt(task.split("T")[1].toString().trim());
+														if (index2 < index1) {
+															flexibleProbabilities.clear();
+															flexibleProbabilities.put(negTask, bigProb);
+															flexibleProbabilities.put(task, smallProb);
+															bestExpectedUtility = expectedUtility;
+															secondBestTask = task;
+														}
+													}
+												}
+											} else {
+												expectedUtility = (utilitiesAverage.get(task) * bigProb) + (utilitiesAverage.get(negTask) * smallProb);
+												if (bestExpectedUtility == null || Double.parseDouble(f.format(expectedUtility)) > Double.parseDouble(f.format(bestExpectedUtility))) {
+													flexibleProbabilities.clear();
+													flexibleProbabilities.put(negTask, smallProb);
+													flexibleProbabilities.put(task, bigProb);
+													bestExpectedUtility = expectedUtility;
+													secondBestTask = task;
+												} else {
+													if (Double.parseDouble(f.format(expectedUtility)) == Double.parseDouble(f.format(bestExpectedUtility))) {
+														int index1 = Integer.parseInt(secondBestTask.split("T")[1].toString().trim());
+														int index2 = Integer.parseInt(task.split("T")[1].toString().trim());
+														if (index2 < index1) {
+															flexibleProbabilities.clear();
+															flexibleProbabilities.put(negTask, smallProb);
+															flexibleProbabilities.put(task, bigProb);
+															bestExpectedUtility = expectedUtility;
+															secondBestTask = task;
+														}
+													}
+												}
+											}
+										} else {
+											if (taskMin == 0) {
+												if (bestExpectedUtility == null) {
+													bestExpectedUtility = 0.0;
+													secondBestTask = task;
+												}
+											}
 										}
 									}
 								}
@@ -211,13 +226,15 @@ public class Agent {
 				bestTask = bestUtilityTask(utilitiesAverage);
 			}
 		}
-		System.out.println();
 	}
 	
 	private void printFlexibleProbabilities() {
+		List<String> taskList = new ArrayList<>(flexibleProbabilities.keySet());
+		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
+		
 		System.out.print("{");
 		int count = 0;
-		for (String task: flexibleProbabilities.keySet()) {
+		for (String task: taskList) {
 			count++;
 			System.out.print(task + "=" + frmt.format(flexibleProbabilities.get(task)));
 			if (count==1) {
@@ -227,25 +244,6 @@ public class Agent {
 		System.out.print("}");
 		System.out.println();
 	}
-	
-//	private String secondBestTask(HashMap<String, Double> map, String best) {
-//		String currentBestTask = null;
-//		for (String task : map.keySet()) {
-//			if ((map.get(task) >= 0) && !task.equals(best)) {
-//				if (currentBestTask == null || map.get(task) > map.get(currentBestTask)) {
-//					currentBestTask = task;
-//				} else {
-//					if (map.get(task).compareTo(map.get(currentBestTask)) == 0) {
-//						int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
-//						int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
-//						if (index1 < index2)
-//							currentBestTask = task;
-//					}
-//				}
-//			}
-//		}
-//		return currentBestTask;
-//	}
 	
 	private HashMap<String, Double> createRestartDecisionMap() {
 		HashMap<String, Double> decisionMap = new HashMap<String, Double>(utilitiesAverage);
