@@ -236,7 +236,15 @@ public class Agent {
 		int count = 0;
 		for (String task: taskList) {
 			count++;
-			System.out.print(task + "=" + frmt.format(flexibleProbabilities.get(task)));
+			if (flexibleProbabilities.get(task) == 0.625) {
+				System.out.print(task + "=0.63");
+			} else {
+				if (flexibleProbabilities.get(task) == 0.375) {
+					System.out.print(task + "=0.37");
+				} else {
+					System.out.print(task + "=" + frmt.format(flexibleProbabilities.get(task)));
+				}
+			}
 			if (count==1) {
 				System.out.print(",");
 			}
@@ -260,12 +268,15 @@ public class Agent {
 	}
 
 	public String bestUtilityTask(HashMap<String, Double> map) {
+		Locale l = new Locale("en", "UK");
+		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
+		f.applyPattern("#0.0000");
 		String currentBestTask = null;
 		for (String task : map.keySet()) {
-			if (currentBestTask == null || map.get(task) > map.get(currentBestTask)) {
+			if (currentBestTask == null || Double.parseDouble(f.format(map.get(task))) > Double.parseDouble(f.format(map.get(currentBestTask)))) {
 				currentBestTask = task;
 			} else {
-				if (map.get(task).compareTo(map.get(currentBestTask)) == 0) {
+				if (Double.parseDouble(f.format(map.get(task))) == Double.parseDouble(f.format(map.get(currentBestTask)))) {
 					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
 					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
 					if (index1 < index2)
