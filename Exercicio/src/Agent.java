@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.Locale;
 
 public class Agent {
+	
+	Utils utils;
 
 	private int steps;
 	private String decision;
@@ -35,6 +37,7 @@ public class Agent {
 
 	public Agent(String options) {
 		frmt.applyPattern("#0.00");
+		utils = new Utils();
 		if (options.contains("cycle")) steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
 		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
 		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
@@ -56,7 +59,7 @@ public class Agent {
 					}
 					gain += newValue;
 					updateMaps(newValue, bestTask);
-					utilitiesAverage.put(bestTask, memoryFactorAverage(bestTask));
+					utilitiesAverage.put(bestTask, Utils.memoryFactorAverage(utilitiesIndexes, observedUtilities, bestTask, memoryFactor));
 				} else {
 					String task1 = input.split("=")[1].split("\\{")[1].toString().trim();
 					String task2 = input.split("=")[2].split(",")[1].toString().trim();
@@ -71,8 +74,8 @@ public class Agent {
 							gain += (utility2 * flexibleProbabilities.get(task));
 						}
 					}
-					utilitiesAverage.put(task1, memoryFactorAverage(task1));
-					utilitiesAverage.put(task2, memoryFactorAverage(task2));
+					utilitiesAverage.put(task1, Utils.memoryFactorAverage(utilitiesIndexes, observedUtilities, task1, memoryFactor));
+					utilitiesAverage.put(task2, Utils.memoryFactorAverage(utilitiesIndexes, observedUtilities, task2, memoryFactor));
 					flexibleProbabilities.clear();
 				}
 			}
@@ -94,22 +97,6 @@ public class Agent {
 		indexes.add(stepCounter);
 		utilitiesIndexes.put(task, indexes);
 	}
-	
-	private Double memoryFactorAverage(String task) {
-		Double sum = 0.0;
-		for (Integer index: utilitiesIndexes.get(task)) {
-			sum += Math.pow(index, memoryFactor);
-		}
-		Double average = 0.0;
-		int i=0;
-		for (Double value: observedUtilities.get(task)) {
-			int valueIndex = utilitiesIndexes.get(task).get(i);
-			Double valueProb = Math.pow(valueIndex, memoryFactor) / sum;
-			average += (valueProb*value);
-			i++;
-		}
-		return average;
-	}
 
 	public void decideAndAct() {
 		Locale l = new Locale("en", "UK");
@@ -117,8 +104,8 @@ public class Agent {
 		f.applyPattern("#0.0000");
 		stepCounter++;
 		if (restart > 0) {
-			HashMap<String, Double> decisionMap = createRestartDecisionMap();
-			String task = bestUtilityTask(decisionMap);
+			HashMap<String, Double> decisionMap = Utils.createRestartDecisionMap(utilitiesAverage, bestTask, currentTask, stepCounter, restart, steps);
+			String task = Utils.bestUtilityTask(decisionMap);
 			if (stepCounter == steps) return;
 			if (restartCounter == restart) {
 				if (task.equals(currentTask)) bestTask = task;
@@ -137,7 +124,7 @@ public class Agent {
 		} else {
 			if (decision.equals("flexible")) {
 				if (negativeTaskFlag) {
-					String best = bestUtilityTask(utilitiesAverage);
+					String best = Utils.bestUtilityTask(utilitiesAverage);
 					if (negativeTasks.contains(best)) {
 						String secondBestTask = null;
 						Double bestExpectedUtility = null;
@@ -217,20 +204,19 @@ public class Agent {
 						if (secondBestTask != null) bestTask = secondBestTask;
 					} else {
 						negativeTaskFlag = false;
-						bestTask = bestUtilityTask(utilitiesAverage);
+						bestTask = Utils.bestUtilityTask(utilitiesAverage);
 					}
 				} else {
-					bestTask = bestUtilityTask(utilitiesAverage);
+					bestTask = Utils.bestUtilityTask(utilitiesAverage);
 				}
 			} else {
-				bestTask = bestUtilityTask(utilitiesAverage);
+				bestTask = Utils.bestUtilityTask(utilitiesAverage);
 			}
 		}
 	}
 	
 	private void printFlexibleProbabilities() {
-		List<String> taskList = new ArrayList<>(flexibleProbabilities.keySet());
-		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
+		List<String> taskList = Utils.getOrderedTaskList(flexibleProbabilities);
 		
 		System.out.print("{");
 		int count = 0;
@@ -252,44 +238,9 @@ public class Agent {
 		System.out.print("}");
 		System.out.println();
 	}
-	
-	private HashMap<String, Double> createRestartDecisionMap() {
-		HashMap<String, Double> decisionMap = new HashMap<String, Double>(utilitiesAverage);
-		if (bestTask != null) {
-			for (String task : decisionMap.keySet()) {
-				if (!task.equals(currentTask)) {
-					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1 - restart));
-				} else {
-					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1));
-				}
-			}
-		}
-		return decisionMap;
-	}
-
-	public String bestUtilityTask(HashMap<String, Double> map) {
-		Locale l = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
-		f.applyPattern("#0.0000");
-		String currentBestTask = null;
-		for (String task : map.keySet()) {
-			if (currentBestTask == null || Double.parseDouble(f.format(map.get(task))) > Double.parseDouble(f.format(map.get(currentBestTask)))) {
-				currentBestTask = task;
-			} else {
-				if (Double.parseDouble(f.format(map.get(task))) == Double.parseDouble(f.format(map.get(currentBestTask)))) {
-					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
-					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
-					if (index1 < index2)
-						currentBestTask = task;
-				}
-			}
-		}
-		return currentBestTask;
-	}
 
 	public void recharge() {
-		List<String> taskList = new ArrayList<>(utilitiesAverage.keySet());
-		Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
+		List<String> taskList = Utils.getOrderedTaskList(utilitiesAverage);
 
 		System.out.print("state={");
 		int count = 0;

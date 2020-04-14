@@ -1,20 +1,17 @@
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 
 public class SimpleAgent {
+	
+	Utils utils;
 	
 	private String name;
 	private boolean lastAgent;
 	
 	private int steps;
 	private int restart;
-	private int concurrencyPenalty;
-	private double memoryFactor;
 	
 	private String bestTask;
 	private String currentTask;
@@ -25,14 +22,12 @@ public class SimpleAgent {
 	private HashMap<String, ArrayList<Integer>> utilitiesIndexes = new HashMap<String, ArrayList<Integer>>();
 	private HashMap<String, Double> utilitiesAverage = new HashMap<String, Double>();
 	private HashMap<String, Double> concRestartExpectedUtilities = new HashMap<String, Double>();
-	private HashMap<String, Double> concMap = new HashMap<String, Double>();
 
-	public SimpleAgent(boolean lastAgent, int steps, int restart, int concurrencyPenalty, double memoryFactor) {
+	public SimpleAgent(Utils utils, boolean lastAgent, int steps, int restart) {
+		this.utils = utils;
 		this.lastAgent = lastAgent;
 		this.steps = steps;
 		this.restart = restart;
-		this.concurrencyPenalty = concurrencyPenalty;
-		this.memoryFactor = memoryFactor;
 	}
 	
 	public void updateMaps(Double newValue, String task) {
@@ -51,25 +46,9 @@ public class SimpleAgent {
 		utilitiesIndexes.put(task, indexes);
 	}
 	
-	public Double memoryFactorAverage(String task) {
-		Double sum = 0.0;
-		for (Integer index: utilitiesIndexes.get(task)) {
-			sum += Math.pow(index, memoryFactor);
-		}
-		Double average = 0.0;
-		int i=0;
-		for (Double value: observedUtilities.get(task)) {
-			int valueIndex = utilitiesIndexes.get(task).get(i);
-			Double valueProb = Math.pow(valueIndex, memoryFactor) / sum;
-			average += (valueProb*value);
-			i++;
-		}
-		return average;
-	}
-	
 	public void restartDecision() {
-		HashMap<String, Double> decisionMap = createRestartDecisionMap();
-		String task = bestUtilityTask(decisionMap);
+		HashMap<String, Double> decisionMap = Utils.createRestartDecisionMap(utilitiesAverage, bestTask, currentTask, stepCounter, restart, steps);
+		String task = Utils.bestUtilityTask(decisionMap);
 		updateRestartTasks(task);
 	}
 	
@@ -91,68 +70,12 @@ public class SimpleAgent {
 		currentTask = task;
 	}
 	
-	private HashMap<String, Double> createRestartDecisionMap() {
-		HashMap<String, Double> decisionMap = new HashMap<String, Double>(utilitiesAverage);
-		if (bestTask != null) {
-			for (String task : decisionMap.keySet()) {
-				if (!task.equals(currentTask)) {
-					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1 - restart));
-				} else {
-					decisionMap.put(task, utilitiesAverage.get(task) * (double)(steps - stepCounter + 1));
-				}
-			}
-		}
-		return decisionMap;
-	}
-	
-	public HashMap<String, Double> createConcurrencyDecisionMap() {
-		Locale l = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
-		f.applyPattern("#0.0000");
-		HashMap<String, Double> resultMap = new HashMap<String, Double>();
-		String bestT = bestUtilityTask(utilitiesAverage);
-		for (String task : utilitiesAverage.keySet()) {
-			if (Double.parseDouble(f.format(utilitiesAverage.get(task))) >= (Double.parseDouble(f.format(utilitiesAverage.get(bestT))) - concurrencyPenalty)) {
-				resultMap.put(task, utilitiesAverage.get(task));
-			}
-		}
-		return resultMap;
-	}
-	
-	public String bestUtilityTask(HashMap<String, Double> map) {
-		Locale l = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
-		f.applyPattern("#0.0000");
-		String currentBestTask = null;
-		for (String task : map.keySet()) {
-			if (currentBestTask == null || Double.parseDouble(f.format(map.get(task))) > Double.parseDouble(f.format(map.get(currentBestTask)))) {
-				currentBestTask = task;
-			} else {
-				if (Double.parseDouble(f.format(map.get(task))) == Double.parseDouble(f.format(map.get(currentBestTask)))) {
-					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
-					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
-					if (index1 < index2)
-						currentBestTask = task;
-				}
-			}
-		}
-		return currentBestTask;
-	}
-	
 	public void updateExpectedUtilities() {
-		concRestartExpectedUtilities = new HashMap<String, Double>(createRestartDecisionMap());
+		concRestartExpectedUtilities = new HashMap<String, Double>(Utils.createRestartDecisionMap(utilitiesAverage, bestTask, currentTask, stepCounter, restart, steps));
 	}
 
 	public HashMap<String, Double> getConcExpectedUtilities() {
 		return concRestartExpectedUtilities;
-	}
-	
-	public HashMap<String, Double> getConcMap() {
-		return concMap;
-	}
-
-	public void setConcMap(HashMap<String, Double> concMap) {
-		this.concMap = concMap;
 	}
 
 	public String getName() {

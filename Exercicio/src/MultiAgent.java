@@ -9,6 +9,8 @@ import java.util.Locale;
 
 public class MultiAgent extends Agent {
 	
+	Utils utils;
+	
 	private int steps;
 	private String decision;
 	private int restart;
@@ -34,6 +36,7 @@ public class MultiAgent extends Agent {
 	public MultiAgent(String options) {
 		super(options);
 		frmt.applyPattern("#0.00");
+		utils = new Utils();
 		if (options.contains("cycle")) steps = Integer.parseInt(options.split("cycle=")[1].split(" ")[0].toString().trim());
 		if (options.contains("decision")) decision = options.split("decision=")[1].split(" ")[0].trim();
 		if (options.contains("restart")) restart = Integer.parseInt(options.split("restart=")[1].split(" ")[0].trim());
@@ -44,9 +47,9 @@ public class MultiAgent extends Agent {
 		for (String agentName: agentsNames) {
 			SimpleAgent newAgent;
 			if (agentName.equals(agentsNames[agentsNames.length - 1])) {
-				newAgent = new SimpleAgent(true, steps, restart, concurrencyPenalty, memoryFactor);
+				newAgent = new SimpleAgent(utils, true, steps, restart);
 			} else {
-				newAgent = new SimpleAgent(false, steps, restart, concurrencyPenalty, memoryFactor);
+				newAgent = new SimpleAgent(utils, false, steps, restart);
 			}
 			newAgent.setName(agentName.trim());
 			agents.add(newAgent);
@@ -67,8 +70,8 @@ public class MultiAgent extends Agent {
 							maGain += newValue;
 							if (concurrencyPenalty > 0 && !concurrentHomogeneousSameTask) {
 								updateMaps(newValue, agent.getBestTask());
-								homogeneousAverages.put(agent.getBestTask(), memoryFactorAverage(agent.getBestTask()));
-								agent.addUtilityAverage(agent.getBestTask(), memoryFactorAverage(agent.getBestTask()));
+								homogeneousAverages.put(agent.getBestTask(), Utils.memoryFactorAverage(homogeneousIndexes, homogeneousObservedUtilities, agent.getBestTask(), memoryFactor));
+								agent.addUtilityAverage(agent.getBestTask(), Utils.memoryFactorAverage(homogeneousIndexes, homogeneousObservedUtilities, agent.getBestTask(), memoryFactor));
 								return;
 							} else {
 								agentsSum += newValue;
@@ -76,10 +79,10 @@ public class MultiAgent extends Agent {
 								if (agent.isLastAgent()) {
 									newAgentsAverage = agentsSum / agents.size();
 									updateMaps(newAgentsAverage, maBestTask);			
-									homogeneousAverages.put(maBestTask, memoryFactorAverage(maBestTask));
+									homogeneousAverages.put(maBestTask, Utils.memoryFactorAverage(homogeneousIndexes, homogeneousObservedUtilities, maBestTask, memoryFactor));
 									agentsSum = 0.0;
 									for (SimpleAgent agent2: agents) {
-										agent2.addUtilityAverage(maBestTask, memoryFactorAverage(maBestTask));
+										agent2.addUtilityAverage(maBestTask, Utils.memoryFactorAverage(homogeneousIndexes, homogeneousObservedUtilities, maBestTask, memoryFactor));
 									}
 								}
 							}						
@@ -101,7 +104,7 @@ public class MultiAgent extends Agent {
 							double newValue = Integer.parseInt(input.split("=")[1].toString().trim());
 							maGain += newValue;
 							agent.updateMaps(newValue, agent.getBestTask());
-							agent.addUtilityAverage(agent.getBestTask(), agent.memoryFactorAverage(agent.getBestTask()));
+							agent.addUtilityAverage(agent.getBestTask(), Utils.memoryFactorAverage(agent.getUtilitiesIndexes(), agent.getObservedUtilities(), agent.getBestTask(), memoryFactor));
 						}
 					}
 				}
@@ -125,22 +128,6 @@ public class MultiAgent extends Agent {
 		homogeneousIndexes.put(task, indexes);
 	}
 	
-	private Double memoryFactorAverage(String task) {
-		Double sum = 0.0;
-		for (Integer index: homogeneousIndexes.get(task)) {
-			sum += Math.pow(index, memoryFactor);
-		}
-		Double average = 0.0;
-		int i=0;
-		for (Double value: homogeneousObservedUtilities.get(task)) {
-			int valueIndex = homogeneousIndexes.get(task).get(i);
-			Double valueProb = Math.pow(valueIndex, memoryFactor) / sum;
-			average += (valueProb*value);
-			i++;
-		}
-		return average;
-	}
-	
 	public void decideAndAct() {
 		maStepCounter++;
 		if (decision.equals("homogeneous-society")) {
@@ -148,8 +135,8 @@ public class MultiAgent extends Agent {
 				if (concurrencyPenalty > 0) {
 					
 				} else {
-					HashMap<String, Double> decisionMap = createRestartDecisionMap();
-					String task = bestUtilityTask(decisionMap);
+					HashMap<String, Double> decisionMap = Utils.createRestartDecisionMap(homogeneousAverages, maBestTask, maCurrentTask, maStepCounter, restart, steps);
+					String task = Utils.bestUtilityTask(decisionMap);
 					if (maStepCounter == steps) return;
 					if (maRestartCounter == restart) {
 						if (task.equals(maCurrentTask)) maBestTask = task;
@@ -172,7 +159,7 @@ public class MultiAgent extends Agent {
 						bestHomogeneousConcurrencyDecision2();
 					}
 				} else {
-					maBestTask = bestUtilityTask(homogeneousAverages);
+					maBestTask = Utils.bestUtilityTask(homogeneousAverages);
 				}
 			}
 		} else {
@@ -192,7 +179,7 @@ public class MultiAgent extends Agent {
 				} else {
 					for (SimpleAgent agent: agents) {
 						agent.setStepCounter(agent.getStepCounter() + 1);
-						String agentBestTask = bestUtilityTask(agent.getUtilitiesAverage());
+						String agentBestTask = Utils.bestUtilityTask(agent.getUtilitiesAverage());
 						agent.setBestTask(agentBestTask);
 					}
 				}
@@ -207,7 +194,7 @@ public class MultiAgent extends Agent {
 		}
 		ArrayList<String> bestTasks = new ArrayList<String>(); 
 		for (SimpleAgent agent: agents) {
-			String bestTask = bestUtilityTask(agent.getConcExpectedUtilities());
+			String bestTask = Utils.bestUtilityTask(agent.getConcExpectedUtilities());
 			if (bestTasks.contains(bestTask)) {
 				String secondBest = ignoreBestTask(agent.getConcExpectedUtilities(), bestTask);
 				Double concUtility;
@@ -229,7 +216,7 @@ public class MultiAgent extends Agent {
 	private void bestHeterogeneousConcurrencyDecision2() {
 		for (SimpleAgent agent: agents) {
 			agent.setStepCounter(agent.getStepCounter() + 1);
-			agent.setBestTask(bestUtilityTask(agent.getUtilitiesAverage()));
+			agent.setBestTask(Utils.bestUtilityTask(agent.getUtilitiesAverage()));
 		}
 		String a1BestTask = agents.get(0).getBestTask();
 		String a2BestTask = agents.get(1).getBestTask();
@@ -249,8 +236,6 @@ public class MultiAgent extends Agent {
 		f.applyPattern("#0.0000");		
 		for (SimpleAgent agent: agents) {
 			agent.setStepCounter(agent.getStepCounter() + 1);
-			HashMap<String, Double> concMap = agent.createConcurrencyDecisionMap();
-			agent.setConcMap(concMap);
 		}
 		HashMap<String, Double> mapA1 = agents.get(0).getUtilitiesAverage();
 		HashMap<String, Double> mapA2 = agents.get(1).getUtilitiesAverage();
@@ -312,7 +297,7 @@ public class MultiAgent extends Agent {
 	}
 
 	private void bestHomogeneousConcurrencyDecision2() {
-		String currentBestTask = bestUtilityTask(homogeneousAverages);
+		String currentBestTask = Utils.bestUtilityTask(homogeneousAverages);
 		Double bestTaskUtility = homogeneousAverages.get(currentBestTask);
 		String currentSecondBest = ignoreBestTask(homogeneousAverages, currentBestTask);
 		Double secondBestUtility = homogeneousAverages.get(currentSecondBest);
@@ -331,26 +316,6 @@ public class MultiAgent extends Agent {
 				agents.get(1).setBestTask(currentBestTask);
 			}
 		}
-	}
-
-	public String bestUtilityTask(HashMap<String, Double> map) {
-		Locale l = new Locale("en", "UK");
-		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
-		f.applyPattern("#0.0000");
-		String currentBestTask = null;
-		for (String task : map.keySet()) {
-			if (currentBestTask == null || Double.parseDouble(f.format(map.get(task))) > Double.parseDouble(f.format(map.get(currentBestTask)))) {
-				currentBestTask = task;
-			} else {
-				if (Double.parseDouble(f.format(map.get(task))) == Double.parseDouble(f.format(map.get(currentBestTask)))) {
-					int index1 = Integer.parseInt(task.split("T")[1].toString().trim());
-					int index2 = Integer.parseInt(currentBestTask.split("T")[1].toString().trim());
-					if (index1 < index2)
-						currentBestTask = task;
-				}
-			}
-		}
-		return currentBestTask;
 	}
 	
 	public String ignoreBestTask(HashMap<String, Double> map, String ignoreTask) {
@@ -375,24 +340,9 @@ public class MultiAgent extends Agent {
 		return currentBestTask;
 	}
 	
-	private HashMap<String, Double> createRestartDecisionMap() {
-		HashMap<String, Double> decisionMap = new HashMap<String, Double>(homogeneousAverages);
-		if (maBestTask != null) {
-			for (String task : decisionMap.keySet()) {
-				if (!task.equals(maCurrentTask)) {
-					decisionMap.put(task, homogeneousAverages.get(task) * (double)(steps - maStepCounter + 1 - restart));
-				} else {
-					decisionMap.put(task, homogeneousAverages.get(task) * (double)(steps - maStepCounter + 1));
-				}
-			}
-		}
-		return decisionMap;
-	}
-	
 	public void recharge() {
 		if (decision.equals("homogeneous-society")) {
-			List<String> taskList = new ArrayList<>(homogeneousAverages.keySet());
-			Collections.sort(taskList, (o1, o2) -> o1.compareTo(o2));
+			List<String> taskList = Utils.getOrderedTaskList(homogeneousAverages);
 	
 			System.out.print("state={");
 			int agentsCounter = 0;
