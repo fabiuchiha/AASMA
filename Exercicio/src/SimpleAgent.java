@@ -24,7 +24,8 @@ public class SimpleAgent {
 	private HashMap<String, ArrayList<Double>> observedUtilities = new HashMap<String, ArrayList<Double>>();
 	private HashMap<String, ArrayList<Integer>> utilitiesIndexes = new HashMap<String, ArrayList<Integer>>();
 	private HashMap<String, Double> utilitiesAverage = new HashMap<String, Double>();
-	private HashMap<String, Double> concExpectedUtilities = new HashMap<String, Double>();
+	private HashMap<String, Double> concRestartExpectedUtilities = new HashMap<String, Double>();
+	private HashMap<String, Double> concMap = new HashMap<String, Double>();
 
 	public SimpleAgent(boolean lastAgent, int steps, int restart, int concurrencyPenalty, double memoryFactor) {
 		this.lastAgent = lastAgent;
@@ -104,6 +105,20 @@ public class SimpleAgent {
 		return decisionMap;
 	}
 	
+	public HashMap<String, Double> createConcurrencyDecisionMap() {
+		Locale l = new Locale("en", "UK");
+		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
+		f.applyPattern("#0.0000");
+		HashMap<String, Double> resultMap = new HashMap<String, Double>();
+		String bestT = bestUtilityTask(utilitiesAverage);
+		for (String task : utilitiesAverage.keySet()) {
+			if (Double.parseDouble(f.format(utilitiesAverage.get(task))) >= (Double.parseDouble(f.format(utilitiesAverage.get(bestT))) - concurrencyPenalty)) {
+				resultMap.put(task, utilitiesAverage.get(task));
+			}
+		}
+		return resultMap;
+	}
+	
 	public String bestUtilityTask(HashMap<String, Double> map) {
 		Locale l = new Locale("en", "UK");
 		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
@@ -125,11 +140,19 @@ public class SimpleAgent {
 	}
 	
 	public void updateExpectedUtilities() {
-		concExpectedUtilities = new HashMap<String, Double>(createRestartDecisionMap());
+		concRestartExpectedUtilities = new HashMap<String, Double>(createRestartDecisionMap());
 	}
 
 	public HashMap<String, Double> getConcExpectedUtilities() {
-		return concExpectedUtilities;
+		return concRestartExpectedUtilities;
+	}
+	
+	public HashMap<String, Double> getConcMap() {
+		return concMap;
+	}
+
+	public void setConcMap(HashMap<String, Double> concMap) {
+		this.concMap = concMap;
 	}
 
 	public String getName() {

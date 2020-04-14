@@ -1,6 +1,7 @@
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -186,8 +187,8 @@ public class MultiAgent extends Agent {
 				}
 			} else {
 				if (concurrencyPenalty > 0) {
-					if (agents.size() == 2) bestHeterogeneousConcurrencyDecision2();
 					if (agents.size() == 5) bestHeterogeneousConcurrencyDecision5();
+					else bestHeterogeneousConcurrencyDecision2();
 				} else {
 					for (SimpleAgent agent: agents) {
 						agent.setStepCounter(agent.getStepCounter() + 1);
@@ -203,7 +204,6 @@ public class MultiAgent extends Agent {
 		for (SimpleAgent agent: agents) {
 			agent.setStepCounter(agent.getStepCounter() + 1);
 			agent.updateExpectedUtilities();
-			System.out.println(agent.getUtilitiesAverage());
 		}
 		ArrayList<String> bestTasks = new ArrayList<String>(); 
 		for (SimpleAgent agent: agents) {
@@ -244,27 +244,71 @@ public class MultiAgent extends Agent {
 	}
 	
 	private void bestHeterogeneousConcurrencyDecision5() {
+		Locale l = new Locale("en", "UK");
+		DecimalFormat f = (DecimalFormat) NumberFormat.getNumberInstance(l);
+		f.applyPattern("#0.0000");		
 		for (SimpleAgent agent: agents) {
 			agent.setStepCounter(agent.getStepCounter() + 1);
+			HashMap<String, Double> concMap = agent.createConcurrencyDecisionMap();
+			agent.setConcMap(concMap);
 		}
-		ArrayList<String> bestTasks = new ArrayList<String>(); 
-		for (SimpleAgent agent: agents) {
-			String bestTask = bestUtilityTask(agent.getUtilitiesAverage());
-			if (bestTasks.contains(bestTask)) {
-				String secondBest = ignoreBestTask(agent.getUtilitiesAverage(), bestTask);
-				Double concUtility;
-				concUtility = (agent.getUtilitiesAverage().get(bestTask) - concurrencyPenalty) 
-							+ (agents.get(bestTasks.indexOf(bestTask)).getUtilitiesAverage().get(bestTask) - concurrencyPenalty);
-				Double sumUt = agent.getUtilitiesAverage().get(secondBest) + agents.get(bestTasks.indexOf(bestTask)).getUtilitiesAverage().get(bestTask);
-				if (sumUt > concUtility) bestTasks.add(secondBest);
-				else bestTasks.add(bestTask);
-			} else {
-				bestTasks.add(bestTask);
+		HashMap<String, Double> mapA1 = agents.get(0).getUtilitiesAverage();
+		HashMap<String, Double> mapA2 = agents.get(1).getUtilitiesAverage();
+		HashMap<String, Double> mapA3 = agents.get(2).getUtilitiesAverage();
+		HashMap<String, Double> mapA4 = agents.get(3).getUtilitiesAverage();
+		HashMap<String, Double> mapA5 = agents.get(4).getUtilitiesAverage();		
+		Double bestSum = 0.0;
+		ArrayList<String> bestTaskSequence = new ArrayList<String>();		
+		for (String task1: mapA1.keySet()) {
+			for (String task2: mapA2.keySet()) {
+				for (String task3: mapA3.keySet()) {
+					for (String task4: mapA4.keySet()) {
+						for (String task5: mapA5.keySet()) {
+							Double sum = Double.parseDouble(f.format(mapA1.get(task1) + mapA2.get(task2) + mapA3.get(task3) + mapA4.get(task4) + mapA5.get(task5)));
+							List<String> tasks = Arrays.asList(task1, task2, task3, task4, task5);
+							ArrayList<String> tempTasks = new ArrayList<>();
+							tempTasks.addAll(tasks);
+							HashMap<String, List<Integer>> repTasks = new HashMap<String, List<Integer>>();
+							for (int i = 0; i < tempTasks.size(); i++) {
+							    repTasks.computeIfAbsent(tempTasks.get(i), c -> new ArrayList<>()).add(i);
+							}
+							ArrayList<String> updateSumTasks = new ArrayList<String>();
+							for (String task: repTasks.keySet()) {
+								if (repTasks.get(task).size() > 1 && !updateSumTasks.contains(task)) {
+									sum -= (repTasks.get(task).size() * concurrencyPenalty);
+									updateSumTasks.add(task);
+								}
+							}	
+							if (sum > bestSum) {
+								bestSum = sum;
+								bestTaskSequence.clear();
+								bestTaskSequence.addAll(tasks);
+							} else {
+								if (sum == bestSum) {
+									int i = 0;
+									while (i<bestTaskSequence.size()) {
+										int index1 = Integer.parseInt(bestTaskSequence.get(i).split("T")[1].toString().trim());
+										int index2 = Integer.parseInt(tempTasks.get(i).split("T")[1].toString().trim());
+										if (index2 < index1) {
+											bestSum = sum;
+											bestTaskSequence.clear();
+											bestTaskSequence.addAll(tasks);
+											break;
+										}
+										i++;
+									}
+								}
+							}
+							
+							
+						}
+					}
+				}
 			}
 		}
-		for (int i=0; i<bestTasks.size(); i++) {
-			agents.get(i).setBestTask(bestTasks.get(i));
-		}
+		for (int i=0; i<agents.size(); i++) {
+			agents.get(i).setBestTask(bestTaskSequence.get(i));
+		}	
 	}
 
 	private void bestHomogeneousConcurrencyDecision2() {
