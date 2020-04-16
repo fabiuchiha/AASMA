@@ -70,11 +70,11 @@ public class SimpleAgent {
 		currentTask = task;
 	}
 	
-	public void updateExpectedUtilities() {
+	public void updateConcRestartExpectedUtilities() {
 		concRestartExpectedUtilities = new HashMap<String, Double>(Utils.createRestartDecisionMap(utilitiesAverage, bestTask, currentTask, stepCounter, restart, steps));
 	}
 
-	public HashMap<String, Double> getConcExpectedUtilities() {
+	public HashMap<String, Double> getConcRestartExpectedUtilities() {
 		return concRestartExpectedUtilities;
 	}
 
